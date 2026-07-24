@@ -1,0 +1,14 @@
+﻿# Bicep
+*.json.bak
+.bicep/
+
+# Azure CLI
+.azure/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+*.swp
