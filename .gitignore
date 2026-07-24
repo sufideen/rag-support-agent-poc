@@ -12,3 +12,8 @@ Thumbs.db
 # Editors
 .vscode/
 *.swp
+
+# Python
+.venv/
+__pycache__/
+*.pyc
