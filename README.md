@@ -88,3 +88,7 @@ Deploying this wasn't a single clean run. Worth documenting the real issues, sin
 ### Security scanning
 
 IaC security scanning via [PSRule for Azure](https://azure.github.io/PSRule.Rules.Azure/) and [Checkov](https://www.checkov.io/) runs on every push to `infra/**` — see `.github/workflows/security-scan.yml`. Findings surface in the repo's [Security tab](../../security/code-scanning).
+
+
+
+
