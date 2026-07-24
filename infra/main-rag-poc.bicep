@@ -1,4 +1,6 @@
-﻿targetScope = 'resourceGroup'
+am location string = resourceGroup().location
+
+targetScope = 'resourceGroup'
 
 @description('Environment tag, e.g. poc, dev, prod')
 param environment string = 'poc'
@@ -6,7 +8,7 @@ param environment string = 'poc'
 @description('Short project prefix, keeps resource names under length limits')
 param projectPrefix string = 'ragcs'
 
-@description('Azure region â€” match your landing zone region for data residency')
+@description('Azure region — match your landing zone region for data residency')
 param location string = resourceGroup().location
 
 @description('Name of the existing Key Vault deployed by ztr-entra-lz')
@@ -21,12 +23,15 @@ param existingPrivateEndpointSubnetId string
 @description('Object ID of the principal that needs data-plane access')
 param dataPlaneAccessPrincipalId string
 
-@description('Type of the principal above â€” User for interactive testing, ServicePrincipal for CI/CD identities')
+@description('Type of the principal above — User for interactive testing, ServicePrincipal for CI/CD identities')
 @allowed(['User', 'ServicePrincipal', 'Group'])
 param dataPlaneAccessPrincipalType string = 'User'
 
-@description('Resource group name where the Key Vault and Log Analytics workspace actually live')
+@description('Resource group name where the Key Vault lives')
 param governanceResourceGroupName string = 'rg-ictlabs-governance-dev-uksouth'
+
+@description('Resource group name where the Log Analytics workspace lives (different RG than the Key Vault in this landing zone)')
+param connectivityResourceGroupName string = 'rg-ictlabs-connectivity-dev-uksouth'
 
 var namePrefix = '${projectPrefix}-${environment}'
 
@@ -37,7 +42,7 @@ resource existingKeyVault 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
 
 resource existingLogAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
   name: existingLogAnalyticsName
-  scope: resourceGroup(governanceResourceGroupName)
+  scope: resourceGroup(connectivityResourceGroupName)
 }
 
 module aiSearch 'modules/ai-search.bicep' = {
