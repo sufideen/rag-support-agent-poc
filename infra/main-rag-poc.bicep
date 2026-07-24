@@ -6,7 +6,7 @@ param environment string = 'poc'
 @description('Short project prefix, keeps resource names under length limits')
 param projectPrefix string = 'ragcs'
 
-@description('Azure region — match your landing zone region for data residency')
+@description('Azure region â€” match your landing zone region for data residency')
 param location string = resourceGroup().location
 
 @description('Name of the existing Key Vault deployed by ztr-entra-lz')
@@ -18,17 +18,26 @@ param existingLogAnalyticsName string
 @description('Resource ID of the existing subnet for private endpoints (from ztr-entra-lz VNet)')
 param existingPrivateEndpointSubnetId string
 
-@description('Object ID of the managed identity or user that needs data-plane access, e.g. your CI/CD OIDC identity or the Agent Service identity')
+@description('Object ID of the principal that needs data-plane access')
 param dataPlaneAccessPrincipalId string
+
+@description('Type of the principal above â€” User for interactive testing, ServicePrincipal for CI/CD identities')
+@allowed(['User', 'ServicePrincipal', 'Group'])
+param dataPlaneAccessPrincipalType string = 'User'
+
+@description('Resource group name where the Key Vault and Log Analytics workspace actually live')
+param governanceResourceGroupName string = 'rg-ictlabs-governance-dev-uksouth'
 
 var namePrefix = '${projectPrefix}-${environment}'
 
 resource existingKeyVault 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
   name: existingKeyVaultName
+  scope: resourceGroup(governanceResourceGroupName)
 }
 
 resource existingLogAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
   name: existingLogAnalyticsName
+  scope: resourceGroup(governanceResourceGroupName)
 }
 
 module aiSearch 'modules/ai-search.bicep' = {
@@ -40,6 +49,7 @@ module aiSearch 'modules/ai-search.bicep' = {
     privateEndpointSubnetId: existingPrivateEndpointSubnetId
     keyVaultName: existingKeyVault.name
     dataPlaneAccessPrincipalId: dataPlaneAccessPrincipalId
+    dataPlaneAccessPrincipalType: dataPlaneAccessPrincipalType
   }
 }
 
@@ -52,6 +62,7 @@ module azureOpenAi 'modules/azure-openai.bicep' = {
     privateEndpointSubnetId: existingPrivateEndpointSubnetId
     keyVaultName: existingKeyVault.name
     dataPlaneAccessPrincipalId: dataPlaneAccessPrincipalId
+    dataPlaneAccessPrincipalType: dataPlaneAccessPrincipalType
   }
 }
 

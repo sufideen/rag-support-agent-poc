@@ -4,6 +4,7 @@ param logAnalyticsWorkspaceId string
 param privateEndpointSubnetId string
 param keyVaultName string
 param dataPlaneAccessPrincipalId string
+param dataPlaneAccessPrincipalType string = 'User'
 
 resource openAi 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
   name: name
@@ -83,7 +84,7 @@ resource openAiRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   properties: {
     principalId: dataPlaneAccessPrincipalId
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')
-    principalType: 'ServicePrincipal'
+    principalType: dataPlaneAccessPrincipalType
   }
 }
 
