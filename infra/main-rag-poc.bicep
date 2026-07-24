@@ -1,5 +1,3 @@
-am location string = resourceGroup().location
-
 targetScope = 'resourceGroup'
 
 @description('Environment tag, e.g. poc, dev, prod')
