@@ -29,7 +29,6 @@ resource chatDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-1
     model: {
       format: 'OpenAI'
       name: 'gpt-4o-mini'
-      version: '2024-07-18'
     }
   }
 }
@@ -45,7 +44,6 @@ resource embeddingDeployment 'Microsoft.CognitiveServices/accounts/deployments@2
     model: {
       format: 'OpenAI'
       name: 'text-embedding-3-small'
-      version: '1'
     }
   }
   dependsOn: [ chatDeployment ]
