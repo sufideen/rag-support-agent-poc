@@ -69,7 +69,7 @@ All three data-plane services are private-endpoint-only, so `app/ingest.py` and
 Python there). From wherever you run them:
 
 ```bash
-az login   # DefaultAzureCredential needs a credential source
+az login   # app/*.py use AzureCliCredential, which needs this session
 cp .env.example .env   # fill in SEARCH_ENDPOINT / OPENAI_ENDPOINT from the deployment outputs
 export $(grep -v '^#' .env | xargs)
 
@@ -79,7 +79,10 @@ python app/query.py "How do I report an outage?"
 ```
 
 No API keys are used anywhere — both services have `disableLocalAuth: true`,
-so auth is Entra ID / RBAC only via `DefaultAzureCredential`.
+so auth is Entra ID / RBAC only via `AzureCliCredential` (pinned explicitly rather
+than `DefaultAzureCredential`, whose generic fallback chain can silently
+authenticate as an unintended identity ahead of your `az login` session — see
+`docs/architecture.md`).
 
 ## Connecting to vm-rag-test interactively
 

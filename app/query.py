@@ -5,12 +5,15 @@ Usage:
     python app/query.py "How do I reset my password?"
 
 Auth is Entra ID only (disableLocalAuth=true on both services) via
-DefaultAzureCredential — run `az login` first.
+AzureCliCredential — run `az login` first. Pinned to AzureCliCredential
+specifically (not DefaultAzureCredential) because its generic fallback
+chain can silently authenticate as an unintended identity ahead of your
+login — hit this in practice on vm-rag-test.
 """
 import argparse
 import sys
 
-from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+from azure.identity import AzureCliCredential, get_bearer_token_provider
 from azure.search.documents import SearchClient
 from azure.search.documents.models import VectorizedQuery
 from openai import AzureOpenAI
@@ -58,7 +61,7 @@ def main() -> int:
     args = parser.parse_args()
 
     config = Config.from_env()
-    credential = DefaultAzureCredential()
+    credential = AzureCliCredential()
 
     search_client = SearchClient(config.search_endpoint, config.search_index_name, credential)
     openai_client = AzureOpenAI(

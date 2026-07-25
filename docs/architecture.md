@@ -38,8 +38,10 @@ Because the services above have no public network access, a Windows dev machine
 outside the VNet cannot call them directly. `app/ingest.py` and `app/query.py` are
 written to run from inside the VNet — in practice, from `vm-rag-test` — using
 `infra/scripts/provision-test-vm-python.sh` (installs the venv and
-`requirements.txt`) via `az vm run-command invoke`, since the VM has no public IP
-and no SSH/Bastion access.
+`requirements.txt`) via `az vm run-command invoke`, since the VM has no public IP.
+For anything interactive (`az login`, ad hoc debugging), `infra/bastion-dev.bicep`
+(Bastion Developer SKU) gives a browser-based SSH session — see the README's
+"Connecting to vm-rag-test interactively" section.
 
 ## RAG pipeline (`app/`)
 
@@ -58,25 +60,26 @@ and no SSH/Bastion access.
   Search's vector query, and asks `gpt-5-mini` to answer using only that
   context.
 
-Both authenticate via `DefaultAzureCredential` against the RBAC roles the Bicep
+Both authenticate via `AzureCliCredential` against the RBAC roles the Bicep
 already grants to `dataPlaneAccessPrincipalId` (`Search Index Data Contributor`,
-`Cognitive Services OpenAI User`).
+`Cognitive Services OpenAI User`) — auth on the VM is interactive `az login`
+(device-code flow via a Bastion session; see "Connecting to vm-rag-test
+interactively" in the README).
 
-## Known gap: auth from inside the VM
+## Resolved gap: DefaultAzureCredential picked the wrong identity
 
-`DefaultAzureCredential` needs a credential source it can actually use. Two
-options, neither wired up yet:
-
-1. **Interactive `az login` on the VM** (device-code flow) — works only if the
-   Zero Trust firewall allows outbound to the Entra ID login endpoints even
-   though general internet (e.g. PyPI) may be blocked. Simplest for one-off
-   testing.
-2. **System-assigned managed identity on the VM**, granted the same
-   `Search Index Data Contributor` / `Cognitive Services OpenAI User` roles as
-   `dataPlaneAccessPrincipalId` in `infra/test-vm.bicep` — more appropriate if
-   the VM becomes a longer-lived execution environment, but not yet
-   implemented since it grants a disposable VM standing data-plane access and
-   should be a deliberate decision, not a default.
+The scripts originally used `DefaultAzureCredential`, which tries a fixed chain
+— `EnvironmentCredential`, then `ManagedIdentityCredential`, and only *then*
+`AzureCliCredential`. In practice on `vm-rag-test`, one of the earlier
+credential types silently won and authenticated as an unintended identity that
+lacked the RBAC roles, even though `az login` had been completed correctly and
+the actual signed-in user did have the right roles assigned. The fix: pin all
+three scripts to `AzureCliCredential` explicitly, so they always use the
+`az login` session on the VM specifically rather than letting
+`DefaultAzureCredential` guess. A system-assigned managed identity on the VM
+(granted the same roles as `dataPlaneAccessPrincipalId`) remains a possible
+alternative for a longer-lived execution environment, but isn't used —
+deliberately, since it would grant a disposable VM standing data-plane access.
 
 ## CI/CD
 
