@@ -1,0 +1,45 @@
+name: Infra security scan
+
+on:
+  push:
+    paths:
+      - 'infra/**'
+  pull_request:
+    paths:
+      - 'infra/**'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  psrule:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run PSRule for Azure
+        uses: microsoft/ps-rule@v2
+        with:
+          modules: 'PSRule.Rules.Azure'
+          inputPath: 'infra/'
+
+  checkov:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: infra/
+          framework: bicep
+          output_format: sarif
+          output_file_path: checkov-results.sarif
+        continue-on-error: true
+
+      - name: Upload SARIF to code scanning
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: checkov-results.sarif
