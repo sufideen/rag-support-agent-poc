@@ -19,16 +19,32 @@ These are passed in as deployment parameters (`existingKeyVaultName`,
 
 ```
 infra/
-  main-rag-poc.bicep       # orchestrator
+  main-rag-poc.bicep              # orchestrator
+  test-vm.bicep                   # disposable Ubuntu VM for connectivity testing / running app/
+  openai-model-deployments.bicep
   modules/
     ai-search.bicep
     azure-openai.bicep
     content-safety.bicep
+  scripts/
+    provision-test-vm-python.sh   # installs venv + requirements.txt on vm-rag-test
+    provision-test-vm-python.ps1  # wrapper: drives the above via `az vm run-command invoke`
+app/
+  config.py                       # env-var driven config, see .env.example
+  create_index.py                 # one-time: (re)creates the AI Search index — run before ingest.py
+  ingest.py                       # chunks data/*.md, embeds, upserts into AI Search
+  query.py                        # RAG query CLI (retrieve + generate)
+data/
+  *.md                            # sample GridPulse Energy support knowledge base
 docs/
   architecture.md
 .github/workflows/
   deploy.yml
+  security-scan.yml
 ```
+
+See `docs/architecture.md` for how these fit together, including why `app/`
+runs from inside the VNet rather than a local dev machine.
 
 ## Deploy
 
@@ -43,6 +59,26 @@ az deployment group what-if `
 ```
 
 Review the `what-if` output, then run `az deployment group create` with the same parameters.
+
+## Running the RAG pipeline
+
+All three data-plane services are private-endpoint-only, so `app/ingest.py` and
+`app/query.py` need to run from inside the VNet — in practice, from
+`vm-rag-test` (see `infra/scripts/provision-test-vm-python.ps1` to provision
+Python there). From wherever you run them:
+
+```bash
+az login   # DefaultAzureCredential needs a credential source
+cp .env.example .env   # fill in SEARCH_ENDPOINT / OPENAI_ENDPOINT from the deployment outputs
+export $(grep -v '^#' .env | xargs)
+
+python app/create_index.py                    # one-time: creates the Search index
+python app/ingest.py                          # embeds data/*.md into it
+python app/query.py "How do I report an outage?"
+```
+
+No API keys are used anywhere — both services have `disableLocalAuth: true`,
+so auth is Entra ID / RBAC only via `DefaultAzureCredential`.
 
 ## Deployment Evidence
 
