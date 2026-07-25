@@ -22,8 +22,16 @@ $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $requirementsPath = Join-Path $repoRoot "requirements.txt"
 $provisionScriptPath = Join-Path $PSScriptRoot "provision-test-vm-python.sh"
 
-$requirementsB64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($requirementsPath))
-$provisionScriptB64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($provisionScriptPath))
+# Force LF regardless of local git/checkout line-ending settings — these run
+# through bash on the VM, and a CRLF-mangled `set -euo pipefail` line fails
+# with "pipefail\r: invalid option name".
+function Get-Utf8BytesWithLf([string]$Path) {
+    $text = (Get-Content -Path $Path -Raw) -replace "`r`n", "`n"
+    return [System.Text.Encoding]::UTF8.GetBytes($text)
+}
+
+$requirementsB64 = [Convert]::ToBase64String((Get-Utf8BytesWithLf $requirementsPath))
+$provisionScriptB64 = [Convert]::ToBase64String((Get-Utf8BytesWithLf $provisionScriptPath))
 
 # Passed as separate --scripts arguments (one per line), not a single
 # multi-line string — on Windows, az is a .cmd wrapper, and a single argument
