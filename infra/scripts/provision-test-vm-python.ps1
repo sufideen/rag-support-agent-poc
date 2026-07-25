@@ -1,0 +1,38 @@
+# Run from: C:\Users\sufyandg\source\repos\rag-support-agent-poc
+#
+# Provisions Python (venv + requirements.txt) on the disposable vm-rag-test VM
+# via `az vm run-command invoke`, since the VM has no public IP and no
+# SSH/Bastion access. Both requirements.txt and provision-test-vm-python.sh
+# are base64-packaged locally and decoded on the VM, because run-command has
+# no file-copy channel of its own.
+#
+# Usage:
+#   .\infra\scripts\provision-test-vm-python.ps1 -ResourceGroup <rg> [-VmName vm-rag-test]
+
+param(
+    [Parameter(Mandatory = $true)]
+    [string]$ResourceGroup,
+
+    [string]$VmName = "vm-rag-test"
+)
+
+$ErrorActionPreference = "Stop"
+$repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+
+$requirementsPath = Join-Path $repoRoot "requirements.txt"
+$provisionScriptPath = Join-Path $PSScriptRoot "provision-test-vm-python.sh"
+
+$requirementsB64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($requirementsPath))
+$provisionScriptB64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($provisionScriptPath))
+
+$remoteScript = @"
+echo $requirementsB64 | base64 -d > /tmp/requirements.txt
+echo $provisionScriptB64 | base64 -d > /tmp/provision-test-vm-python.sh
+bash /tmp/provision-test-vm-python.sh
+"@
+
+az vm run-command invoke `
+    --resource-group $ResourceGroup `
+    --name $VmName `
+    --command-id RunShellScript `
+    --scripts $remoteScript
