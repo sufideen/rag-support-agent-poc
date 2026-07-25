@@ -45,9 +45,15 @@ and no SSH/Bastion access.
 
 - `app/config.py` — reads endpoints/deployment names from environment variables
   (see `.env.example`); no secrets, since auth is Entra ID only.
+- `app/create_index.py` — **run once, before `ingest.py`.** Defines and
+  (re)creates the `gridpulse-support-docs` index: `content` (searchable text),
+  `content_vector` (HNSW vector field), plus `source`/`category`/`chunk_index`
+  for filtering and facets. Deletes and recreates the index if it already
+  exists, so the schema can be iterated on during development.
 - `app/ingest.py` — chunks `data/*.md` on `##` section boundaries, embeds each
-  chunk with `text-embedding-3-small`, creates the Search index (vector field +
-  HNSW profile) if it doesn't exist, and upserts the chunks.
+  chunk with `text-embedding-3-small`, and upserts into the index created by
+  `create_index.py` (fails with a clear error if that index doesn't exist
+  yet).
 - `app/query.py` — embeds the incoming question, retrieves the top-k chunks via
   Search's vector query, and asks `gpt-5-mini` to answer using only that
   context.

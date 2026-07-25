@@ -31,6 +31,7 @@ infra/
     provision-test-vm-python.ps1  # wrapper: drives the above via `az vm run-command invoke`
 app/
   config.py                       # env-var driven config, see .env.example
+  create_index.py                 # one-time: (re)creates the AI Search index — run before ingest.py
   ingest.py                       # chunks data/*.md, embeds, upserts into AI Search
   query.py                        # RAG query CLI (retrieve + generate)
 data/
@@ -71,7 +72,8 @@ az login   # DefaultAzureCredential needs a credential source
 cp .env.example .env   # fill in SEARCH_ENDPOINT / OPENAI_ENDPOINT from the deployment outputs
 export $(grep -v '^#' .env | xargs)
 
-python app/ingest.py                          # embeds data/*.md into the Search index
+python app/create_index.py                    # one-time: creates the Search index
+python app/ingest.py                          # embeds data/*.md into it
 python app/query.py "How do I report an outage?"
 ```
 

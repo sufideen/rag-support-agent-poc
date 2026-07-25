@@ -1,5 +1,8 @@
 """Chunks data/*.md, embeds each chunk via Azure OpenAI, and upserts into Azure AI Search.
 
+Requires the index to already exist — run `python app/create_index.py` once
+first.
+
 Usage:
     python app/ingest.py
 
@@ -11,25 +14,14 @@ import os
 import re
 import sys
 
+from azure.core.exceptions import ResourceNotFoundError
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from azure.search.documents import SearchClient
 from azure.search.documents.indexes import SearchIndexClient
-from azure.search.documents.indexes.models import (
-    HnswAlgorithmConfiguration,
-    SearchableField,
-    SearchField,
-    SearchFieldDataType,
-    SearchIndex,
-    SimpleField,
-    VectorSearch,
-    VectorSearchProfile,
-)
 from openai import AzureOpenAI
 
 from config import Config
 
-VECTOR_PROFILE_NAME = "default-profile"
-VECTOR_ALGORITHM_NAME = "default-hnsw"
 COGNITIVE_SERVICES_SCOPE = "https://cognitiveservices.azure.com/.default"
 
 
@@ -46,36 +38,15 @@ def chunk_markdown(text: str, max_chars: int = 1200) -> list[str]:
     return chunks
 
 
-def ensure_index(index_client: SearchIndexClient, config: Config) -> None:
-    existing = {index.name for index in index_client.list_indexes()}
-    if config.search_index_name in existing:
-        return
-
-    fields = [
-        SimpleField(name="id", type=SearchFieldDataType.String, key=True),
-        SearchableField(name="content", type=SearchFieldDataType.String),
-        SimpleField(name="source", type=SearchFieldDataType.String, filterable=True),
-        SearchField(
-            name="contentVector",
-            type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
-            searchable=True,
-            vector_search_dimensions=config.embedding_dimensions,
-            vector_search_profile_name=VECTOR_PROFILE_NAME,
-        ),
-    ]
-    vector_search = VectorSearch(
-        algorithms=[HnswAlgorithmConfiguration(name=VECTOR_ALGORITHM_NAME)],
-        profiles=[
-            VectorSearchProfile(
-                name=VECTOR_PROFILE_NAME,
-                algorithm_configuration_name=VECTOR_ALGORITHM_NAME,
-            )
-        ],
-    )
-    index_client.create_index(
-        SearchIndex(name=config.search_index_name, fields=fields, vector_search=vector_search)
-    )
-    print(f"Created index '{config.search_index_name}'")
+def check_index_exists(config: Config, credential) -> None:
+    index_client = SearchIndexClient(config.search_endpoint, credential)
+    try:
+        index_client.get_index(config.search_index_name)
+    except ResourceNotFoundError:
+        raise RuntimeError(
+            f"Index '{config.search_index_name}' doesn't exist. "
+            "Run `python app/create_index.py` first."
+        ) from None
 
 
 def embed_all(openai_client: AzureOpenAI, config: Config, texts: list[str]) -> list[list[float]]:
@@ -86,9 +57,7 @@ def embed_all(openai_client: AzureOpenAI, config: Config, texts: list[str]) -> l
 def main() -> int:
     config = Config.from_env()
     credential = DefaultAzureCredential()
-
-    index_client = SearchIndexClient(config.search_endpoint, credential)
-    ensure_index(index_client, config)
+    check_index_exists(config, credential)
 
     search_client = SearchClient(config.search_endpoint, config.search_index_name, credential)
     openai_client = AzureOpenAI(
@@ -100,10 +69,19 @@ def main() -> int:
     documents = []
     for path in sorted(glob.glob(os.path.join(config.data_dir, "*.md"))):
         source = os.path.basename(path)
+        category = os.path.splitext(source)[0]
         with open(path, encoding="utf-8") as f:
             text = f.read()
         for i, chunk in enumerate(chunk_markdown(text)):
-            documents.append({"id": f"{source}-{i}", "content": chunk, "source": source})
+            documents.append(
+                {
+                    "id": f"{category}-{i}",
+                    "content": chunk,
+                    "source": source,
+                    "category": category,
+                    "chunk_index": i,
+                }
+            )
 
     if not documents:
         print(f"No markdown files found in {config.data_dir}", file=sys.stderr)
@@ -111,7 +89,7 @@ def main() -> int:
 
     vectors = embed_all(openai_client, config, [d["content"] for d in documents])
     for doc, vector in zip(documents, vectors):
-        doc["contentVector"] = vector
+        doc["content_vector"] = vector
 
     results = search_client.upload_documents(documents)
     failed = [r for r in results if not r.succeeded]

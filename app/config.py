@@ -27,7 +27,7 @@ class Config:
 
         return cls(
             search_endpoint=os.environ["SEARCH_ENDPOINT"],
-            search_index_name=os.environ.get("SEARCH_INDEX_NAME", "gridpulse-support-kb"),
+            search_index_name=os.environ.get("SEARCH_INDEX_NAME", "gridpulse-support-docs"),
             openai_endpoint=os.environ["OPENAI_ENDPOINT"],
             openai_api_version=os.environ.get("OPENAI_API_VERSION", "2024-10-21"),
             chat_deployment=os.environ.get("CHAT_DEPLOYMENT", "gpt-5-mini"),

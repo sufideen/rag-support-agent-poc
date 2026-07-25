@@ -32,7 +32,7 @@ def retrieve(search_client: SearchClient, openai_client: AzureOpenAI, config: Co
     results = search_client.search(
         search_text=None,
         vector_queries=[
-            VectorizedQuery(vector=vector, k_nearest_neighbors=top_k, fields="contentVector")
+            VectorizedQuery(vector=vector, k_nearest_neighbors=top_k, fields="content_vector")
         ],
         select=["content", "source"],
     )
