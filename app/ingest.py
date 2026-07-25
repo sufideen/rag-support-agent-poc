@@ -7,7 +7,10 @@ Usage:
     python app/ingest.py
 
 Auth is Entra ID only (disableLocalAuth=true on both services) via
-DefaultAzureCredential — run `az login` first.
+AzureCliCredential — run `az login` first. Pinned to AzureCliCredential
+specifically (not DefaultAzureCredential) because its generic fallback
+chain can silently authenticate as an unintended identity ahead of your
+login — hit this in practice on vm-rag-test.
 """
 import glob
 import os
@@ -15,7 +18,7 @@ import re
 import sys
 
 from azure.core.exceptions import ResourceNotFoundError
-from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+from azure.identity import AzureCliCredential, get_bearer_token_provider
 from azure.search.documents import SearchClient
 from azure.search.documents.indexes import SearchIndexClient
 from openai import AzureOpenAI
@@ -56,7 +59,7 @@ def embed_all(openai_client: AzureOpenAI, config: Config, texts: list[str]) -> l
 
 def main() -> int:
     config = Config.from_env()
-    credential = DefaultAzureCredential()
+    credential = AzureCliCredential()
     check_index_exists(config, credential)
 
     search_client = SearchClient(config.search_endpoint, config.search_index_name, credential)

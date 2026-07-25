@@ -1,0 +1,10 @@
+# These run on Linux (the test VM, CI) — force LF regardless of the
+# checkout platform's git config (Windows core.autocrlf reintroduces CRLF
+# by default, which breaks bash scripts: `set -euo pipefail\r` fails with
+# "pipefail\r: invalid option name").
+*.sh text eol=lf
+*.py text eol=lf
+requirements.txt text eol=lf
+
+# Native to Windows/PowerShell — keep CRLF.
+*.ps1 text eol=crlf

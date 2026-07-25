@@ -21,6 +21,7 @@ These are passed in as deployment parameters (`existingKeyVaultName`,
 infra/
   main-rag-poc.bicep              # orchestrator
   test-vm.bicep                   # disposable Ubuntu VM for connectivity testing / running app/
+  bastion-dev.bicep               # optional: Bastion Developer SKU for interactive access to vm-rag-test
   openai-model-deployments.bicep
   modules/
     ai-search.bicep
@@ -68,7 +69,7 @@ All three data-plane services are private-endpoint-only, so `app/ingest.py` and
 Python there). From wherever you run them:
 
 ```bash
-az login   # DefaultAzureCredential needs a credential source
+az login   # app/*.py use AzureCliCredential, which needs this session
 cp .env.example .env   # fill in SEARCH_ENDPOINT / OPENAI_ENDPOINT from the deployment outputs
 export $(grep -v '^#' .env | xargs)
 
@@ -78,7 +79,32 @@ python app/query.py "How do I report an outage?"
 ```
 
 No API keys are used anywhere — both services have `disableLocalAuth: true`,
-so auth is Entra ID / RBAC only via `DefaultAzureCredential`.
+so auth is Entra ID / RBAC only via `AzureCliCredential` (pinned explicitly rather
+than `DefaultAzureCredential`, whose generic fallback chain can silently
+authenticate as an unintended identity ahead of your `az login` session — see
+`docs/architecture.md`).
+
+## Connecting to vm-rag-test interactively
+
+`run-command invoke` works for scripted, non-interactive steps, but breaks down for anything
+that needs a live prompt — `az login --use-device-code` on the VM, for example, prints a code
+and blocks waiting for browser confirmation, which `run-command` can't surface until the whole
+call finishes. For that, deploy the optional `infra/bastion-dev.bicep`:
+
+```powershell
+az deployment group create `
+  --resource-group "<your-rg>" `
+  --template-file "infra\bastion-dev.bicep" `
+  --parameters existingVnetId="<vnet-resource-id>"
+```
+
+Bastion **Developer SKU** — no dedicated `AzureBastionSubnet`, no public IP, and far cheaper
+than Standard SKU, which is the trade-off worth knowing: Developer SKU gives you a
+browser-based SSH session (Portal → `vm-rag-test` → Connect → Bastion tab → sign in with the
+VM's `adminUsername`/`adminPassword`) but **no native client and no file transfer**. Use it for
+interactive work like `az login --use-device-code` (works exactly like a normal terminal) and
+ad hoc debugging; keep using `run-command` (see `infra/scripts/provision-test-vm-python.ps1`)
+for getting files onto the VM.
 
 ## Deployment Evidence
 
@@ -96,7 +122,7 @@ All three deployed with `publicNetworkAccess: 'Disabled'`, private endpoints int
 
 ### Connectivity validation
 
-Private endpoint reachability was validated from inside the VNet using a disposable test VM (`vm-rag-test`, no public IP, deleted after testing) via `az vm run-command invoke` — no Bastion, VPN, or Portal access required:
+Private endpoint reachability was validated from inside the VNet using a disposable test VM (`vm-rag-test`, no public IP) via `az vm run-command invoke` — no Bastion, VPN, or Portal access required for this initial check (Bastion Developer SKU was added later, see "Connecting to vm-rag-test interactively", once interactive access — not just one-off connectivity checks — was needed):
 
 ```
 --- AI Search ---

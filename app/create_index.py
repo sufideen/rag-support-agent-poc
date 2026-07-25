@@ -5,15 +5,17 @@ Run once before ingest.py. Safe to re-run: it deletes and recreates the
 index if it already exists, so you can iterate on the schema during
 development without manually cleaning up in the Portal.
 
-Auth: DefaultAzureCredential - picks up your az login session locally,
-and would pick up a service principal automatically in CI/CD. No API
-keys anywhere, consistent with disableLocalAuth: true on the search
-service itself.
+Auth: AzureCliCredential — always uses your `az login` session on this
+machine specifically, rather than DefaultAzureCredential's generic fallback
+chain (EnvironmentCredential/ManagedIdentityCredential can silently win
+ahead of your login and authenticate as an unintended identity — hit this
+in practice on vm-rag-test). No API keys anywhere, consistent with
+disableLocalAuth: true on the search service itself.
 
 Usage:
     python app/create_index.py
 """
-from azure.identity import DefaultAzureCredential
+from azure.identity import AzureCliCredential
 from azure.search.documents.indexes import SearchIndexClient
 from azure.search.documents.indexes.models import (
     HnswAlgorithmConfiguration,
@@ -83,7 +85,7 @@ def build_index(config: Config) -> SearchIndex:
 
 def main() -> None:
     config = Config.from_env()
-    credential = DefaultAzureCredential()
+    credential = AzureCliCredential()
     index_client = SearchIndexClient(endpoint=config.search_endpoint, credential=credential)
 
     index = build_index(config)
