@@ -25,14 +25,18 @@ $provisionScriptPath = Join-Path $PSScriptRoot "provision-test-vm-python.sh"
 $requirementsB64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($requirementsPath))
 $provisionScriptB64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($provisionScriptPath))
 
-$remoteScript = @"
-echo $requirementsB64 | base64 -d > /tmp/requirements.txt
-echo $provisionScriptB64 | base64 -d > /tmp/provision-test-vm-python.sh
-bash /tmp/provision-test-vm-python.sh
-"@
+# Passed as separate --scripts arguments (one per line), not a single
+# multi-line string — on Windows, az is a .cmd wrapper, and a single argument
+# containing embedded newlines gets mangled going through cmd.exe's argument
+# handling, silently producing an empty script.
+$remoteScriptLines = @(
+    "echo $requirementsB64 | base64 -d > /tmp/requirements.txt"
+    "echo $provisionScriptB64 | base64 -d > /tmp/provision-test-vm-python.sh"
+    "bash /tmp/provision-test-vm-python.sh"
+)
 
 az vm run-command invoke `
     --resource-group $ResourceGroup `
     --name $VmName `
     --command-id RunShellScript `
-    --scripts $remoteScript
+    --scripts $remoteScriptLines
