@@ -7,6 +7,10 @@ built on Azure AI Foundry components, deployed into the existing
 [ztr-entra-lz](https://github.com/sufideen/ztr-entra-lz) Zero Trust landing zone
 rather than standing up parallel infrastructure.
 
+![Architecture diagram](architecture.svg)
+
+ASCII version, for anyone reading this in a terminal:
+
 ```
 data/*.md  --ingest.py-->  Azure AI Search index (vector + keyword)
                                      ^

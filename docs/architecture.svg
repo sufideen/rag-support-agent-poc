@@ -1,0 +1,163 @@
+<svg viewBox="0 0 1100 900" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" role="img" aria-label="Architecture diagram: a client sends a question through Content Safety, Azure AI Search, and Azure OpenAI, all deployed inside a Zero Trust landing zone's private VNet.">
+<style>
+  .root { color-scheme: light dark; }
+  rect, path, line { }
+  .surface   { fill: #fcfcfb; }
+  .plane     { fill: #f9f9f7; }
+  .ink       { fill: #0b0b0b; }
+  .ink-sec   { fill: #52514e; }
+  .ink-muted { fill: #898781; }
+  .border    { stroke: rgba(11,11,11,0.16); }
+  .border-dash { stroke: #c3c2b7; }
+  .conn      { stroke: #898781; }
+  .search-fill  { fill: rgba(42,120,214,0.10); }
+  .search-line  { stroke: #2a78d6; }
+  .search-text  { fill: #184f95; }
+  .openai-fill  { fill: rgba(235,104,52,0.12); }
+  .openai-line  { stroke: #eb6834; }
+  .openai-text  { fill: #a3441c; }
+  .safety-fill  { fill: rgba(27,175,122,0.12); }
+  .safety-line  { stroke: #1baf7a; }
+  .safety-text  { fill: #0e6b4a; }
+  .chip-fill { fill: #fcfcfb; }
+  .chip-line { stroke: #898781; }
+  @media (prefers-color-scheme: dark) {
+    .surface   { fill: #1a1a19; }
+    .plane     { fill: #141413; }
+    .ink       { fill: #ffffff; }
+    .ink-sec   { fill: #c3c2b7; }
+    .ink-muted { fill: #898781; }
+    .border    { stroke: rgba(255,255,255,0.16); }
+    .border-dash { stroke: #383835; }
+    .conn      { stroke: #898781; }
+    .search-fill  { fill: rgba(57,135,229,0.16); }
+    .search-line  { stroke: #3987e5; }
+    .search-text  { fill: #86b6ef; }
+    .openai-fill  { fill: rgba(217,89,38,0.18); }
+    .openai-line  { stroke: #d95926; }
+    .openai-text  { fill: #f3ab8a; }
+    .safety-fill  { fill: rgba(25,158,112,0.18); }
+    .safety-line  { stroke: #199e70; }
+    .safety-text  { fill: #7fe0bd; }
+    .chip-fill { fill: #1a1a19; }
+    .chip-line { stroke: #898781; }
+  }
+  text { font-size: 15px; }
+  .title { font-size: 16px; font-weight: 600; }
+  .label { font-size: 13px; }
+  .small { font-size: 12px; }
+  .chip { font-size: 12px; font-weight: 600; }
+  .boundary-label { font-size: 14px; font-weight: 600; }
+</style>
+
+<rect class="plane" x="0" y="0" width="1100" height="900"/>
+
+<!-- Client actor -->
+<rect class="surface border" x="410" y="18" width="280" height="72" rx="10" stroke-width="1.5"/>
+<text class="title ink" x="550" y="44" text-anchor="middle">Client</text>
+<text class="small ink-sec" x="550" y="64" text-anchor="middle">CLI (query.py) · Web UI (api.py)</text>
+<text class="small ink-muted" x="550" y="80" text-anchor="middle">or a future Teams / Copilot bot</text>
+
+<!-- connector client -> app, crossing both boundaries -->
+<line class="conn" x1="550" y1="90" x2="550" y2="248" stroke-width="1.5" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+<rect class="chip-fill chip-line" x="500" y="150" width="100" height="24" rx="12" stroke-width="1"/>
+<text class="chip ink" x="550" y="166" text-anchor="middle">① ask · ⑦ answer</text>
+<text class="small ink-muted" x="660" y="150" text-anchor="start">private network path only —</text>
+<text class="small ink-muted" x="660" y="164" text-anchor="start">no public internet reachability</text>
+
+<!-- Landing zone boundary -->
+<rect class="border-dash" x="30" y="180" width="1040" height="690" rx="16" fill="none" stroke-width="1.5" stroke-dasharray="6 5"/>
+<text class="boundary-label ink-sec" x="52" y="206">ztr-entra-lz — Zero Trust Landing Zone (existing, separate repo)</text>
+
+<rect class="surface border" x="750" y="216" width="140" height="24" rx="12" stroke-width="1"/>
+<text class="small ink-sec" x="820" y="232" text-anchor="middle">Key Vault (reused)</text>
+<rect class="surface border" x="900" y="216" width="150" height="24" rx="12" stroke-width="1"/>
+<text class="small ink-sec" x="975" y="232" text-anchor="middle">Log Analytics (reused)</text>
+
+<!-- VNet boundary -->
+<rect class="plane border-dash" x="70" y="248" width="960" height="600" rx="14" stroke-width="1.5" stroke-dasharray="6 5"/>
+<text class="boundary-label ink-sec" x="94" y="276">VNet — private endpoints only · disableLocalAuth=true (Entra ID / RBAC, no API keys)</text>
+
+<!-- App box -->
+<rect class="surface border" x="420" y="300" width="260" height="90" rx="10" stroke-width="1.5"/>
+<text class="title ink" x="550" y="330" text-anchor="middle">app/query.py · app/api.py</text>
+<text class="small ink-sec" x="550" y="350" text-anchor="middle">retrieve → generate → moderate</text>
+<text class="small ink-muted" x="550" y="368" text-anchor="middle">runs on vm-rag-test (inside VNet)</text>
+
+<!-- Planned integration box -->
+<rect class="surface border-dash" x="800" y="300" width="200" height="90" rx="10" stroke-width="1.5" stroke-dasharray="5 4"/>
+<text class="label ink-sec" x="900" y="328" text-anchor="middle">Teams bot /</text>
+<text class="label ink-sec" x="900" y="346" text-anchor="middle">Copilot Studio</text>
+<text class="small ink-muted" x="900" y="364" text-anchor="middle">planned — not yet built</text>
+<line class="conn border-dash" x1="800" y1="345" x2="682" y2="345" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#arrow-muted)"/>
+
+<!-- Data + ingest -->
+<rect class="surface border" x="100" y="300" width="180" height="90" rx="10" stroke-width="1.5"/>
+<text class="label ink" x="190" y="330" text-anchor="middle">data/*.md</text>
+<text class="small ink-sec" x="190" y="350" text-anchor="middle">support knowledge base</text>
+<text class="small ink-muted" x="190" y="368" text-anchor="middle">(sample GridPulse KB)</text>
+
+<line class="conn" x1="280" y1="345" x2="418" y2="450" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text class="small ink-muted" x="290" y="410" text-anchor="start">ingest.py (offline, run manually)</text>
+<text class="small ink-muted" x="290" y="424" text-anchor="start">chunk → embed → upsert</text>
+
+<!-- Three service boxes -->
+<!-- Content Safety -->
+<rect class="safety-fill safety-line" x="120" y="460" width="260" height="120" rx="10" stroke-width="1.5"/>
+<text class="title safety-text" x="250" y="492" text-anchor="middle">Azure AI Content Safety</text>
+<text class="small ink-sec" x="250" y="512" text-anchor="middle">moderates question + answer</text>
+<text class="small ink-muted" x="250" y="528" text-anchor="middle">severity ≥ 4 → refuse</text>
+<rect class="chip-fill chip-line" x="220" y="540" width="60" height="24" rx="12" stroke-width="1"/>
+<text class="chip ink" x="250" y="556" text-anchor="middle">② ⑥</text>
+
+<!-- Search -->
+<rect class="search-fill search-line" x="420" y="460" width="260" height="120" rx="10" stroke-width="1.5"/>
+<text class="title search-text" x="550" y="492" text-anchor="middle">Azure AI Search (basic)</text>
+<text class="small ink-sec" x="550" y="512" text-anchor="middle">gridpulse-support-docs index</text>
+<text class="small ink-muted" x="550" y="528" text-anchor="middle">vector (HNSW) + keyword</text>
+<rect class="chip-fill chip-line" x="520" y="540" width="60" height="24" rx="12" stroke-width="1"/>
+<text class="chip ink" x="550" y="556" text-anchor="middle">④</text>
+
+<!-- OpenAI -->
+<rect class="openai-fill openai-line" x="720" y="460" width="260" height="120" rx="10" stroke-width="1.5"/>
+<text class="title openai-text" x="850" y="492" text-anchor="middle">Azure OpenAI</text>
+<text class="small ink-sec" x="850" y="512" text-anchor="middle">gpt-5-mini · text-embedding-3-small</text>
+<text class="small ink-muted" x="850" y="528" text-anchor="middle">embed question, generate answer</text>
+<rect class="chip-fill chip-line" x="820" y="540" width="60" height="24" rx="12" stroke-width="1"/>
+<text class="chip ink" x="850" y="556" text-anchor="middle">③ ⑤</text>
+
+<!-- App to services connectors -->
+<line class="conn" x1="490" y1="390" x2="290" y2="460" stroke-width="1.5" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+<line class="conn" x1="550" y1="390" x2="550" y2="460" stroke-width="1.5" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+<line class="conn" x1="610" y1="390" x2="800" y2="460" stroke-width="1.5" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+
+<!-- Step legend -->
+<rect class="surface border" x="100" y="620" width="900" height="200" rx="10" stroke-width="1.5"/>
+<text class="title ink" x="122" y="648">Query flow, step by step</text>
+<text class="label ink-sec" x="122" y="676">① Client sends a question (CLI argument or POST /query)</text>
+<text class="label ink-sec" x="122" y="698">② Content Safety checks the question — flagged questions are refused before any Search/OpenAI call</text>
+<text class="label ink-sec" x="122" y="720">③ Azure OpenAI embeds the question (text-embedding-3-small)</text>
+<text class="label ink-sec" x="122" y="742">④ Azure AI Search returns the top-k matching chunks (vector query)</text>
+<text class="label ink-sec" x="122" y="764">⑤ Azure OpenAI generates an answer grounded only in those chunks (gpt-5-mini)</text>
+<text class="label ink-sec" x="122" y="786">⑥ Content Safety checks the generated answer — flagged answers are replaced with a refusal message</text>
+<text class="label ink-sec" x="122" y="808">⑦ Answer is returned to the client</text>
+
+<!-- Color key -->
+<rect class="safety-fill safety-line" x="850" y="668" width="16" height="16" stroke-width="1.5"/>
+<text class="small ink-sec" x="872" y="681">Content Safety</text>
+<rect class="search-fill search-line" x="850" y="694" width="16" height="16" stroke-width="1.5"/>
+<text class="small ink-sec" x="872" y="707">AI Search</text>
+<rect class="openai-fill openai-line" x="850" y="720" width="16" height="16" stroke-width="1.5"/>
+<text class="small ink-sec" x="872" y="733">Azure OpenAI</text>
+<rect class="surface border-dash" x="850" y="746" width="16" height="16" stroke-width="1.5" stroke-dasharray="3 3"/>
+<text class="small ink-muted" x="872" y="759">Planned</text>
+
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" class="ink-muted"/>
+  </marker>
+  <marker id="arrow-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" class="ink-muted"/>
+  </marker>
+</defs>
+</svg>
