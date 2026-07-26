@@ -111,7 +111,7 @@ Python there). From wherever you run them:
 
 ```bash
 az login   # DefaultAzureCredential needs a credential source
-cp .env.example .env   # fill in SEARCH_ENDPOINT / OPENAI_ENDPOINT from the deployment outputs
+cp .env.example .env   # fill in SEARCH_ENDPOINT / OPENAI_ENDPOINT / CONTENT_SAFETY_ENDPOINT from the deployment outputs
 export $(grep -v '^#' .env | xargs)
 
 python app/create_index.py                    # one-time: creates the Search index
@@ -119,8 +119,33 @@ python app/ingest.py                          # embeds data/*.md into it
 python app/query.py "How do I report an outage?"
 ```
 
-No API keys are used anywhere — both services have `disableLocalAuth: true`,
-so auth is Entra ID / RBAC only via `DefaultAzureCredential`.
+Example output, grounded in `data/outage-reporting.md`:
+
+```
+$ python app/query.py "How do I report an outage?"
+You can report a power outage in three ways: online via the GridPulse
+account portal (fastest, gives a restoration estimate), by calling the
+24/7 outage line on 0800 555 0199, or by texting OUTAGE to 60555 with
+your postcode. Before reporting, check whether a neighbour has power
+(a tripped fuse may be the cause) and the live outage map for known
+faults in your area.
+
+$ python app/query.py "What's your refund policy for a broken toaster?"
+I don't have that information — please contact GridPulse Energy support
+directly for help with that.
+```
+
+The second example shows the grounding working as intended: nothing in the
+knowledge base covers toaster refunds, so `gpt-5-mini` declines per
+`SYSTEM_PROMPT` instead of guessing. Separately, if either the question or
+the generated answer is flagged by Content Safety (severity ≥
+`SEVERITY_BLOCK_THRESHOLD`), `query.py` short-circuits with a fixed refusal
+message instead of ever printing model output.
+
+No API keys are used anywhere — all three services have `disableLocalAuth:
+true`, so auth is Entra ID / RBAC only via `DefaultAzureCredential`. Both the
+incoming question and the generated answer are also checked against Azure AI
+Content Safety before a response is returned.
 
 ## Testing
 

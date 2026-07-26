@@ -77,6 +77,8 @@ module contentSafety 'modules/content-safety.bicep' = {
     logAnalyticsWorkspaceId: existingLogAnalytics.id
     privateEndpointSubnetId: existingPrivateEndpointSubnetId
     keyVaultName: existingKeyVault.name
+    dataPlaneAccessPrincipalId: dataPlaneAccessPrincipalId
+    dataPlaneAccessPrincipalType: dataPlaneAccessPrincipalType
   }
 }
 

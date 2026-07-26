@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 
 from config import Config
-from query import generate_answer, retrieve
+from query import generate_answer, is_flagged, retrieve
 
 
 def _config():
@@ -13,8 +13,33 @@ def _config():
         chat_deployment="gpt-5-mini",
         embedding_deployment="text-embedding-3-small",
         embedding_dimensions=1536,
+        content_safety_endpoint="https://example.cognitiveservices.azure.com",
         data_dir="/tmp/does-not-matter",
     )
+
+
+def _category(severity):
+    return MagicMock(severity=severity)
+
+
+def test_is_flagged_true_when_any_category_meets_the_threshold():
+    content_safety_client = MagicMock()
+    content_safety_client.analyze_text.return_value.categories_analysis = [
+        _category(0),
+        _category(4),
+    ]
+
+    assert is_flagged(content_safety_client, "some text") is True
+
+
+def test_is_flagged_false_when_all_categories_below_threshold():
+    content_safety_client = MagicMock()
+    content_safety_client.analyze_text.return_value.categories_analysis = [
+        _category(0),
+        _category(2),
+    ]
+
+    assert is_flagged(content_safety_client, "some text") is False
 
 
 def test_retrieve_embeds_question_and_searches_with_the_resulting_vector():

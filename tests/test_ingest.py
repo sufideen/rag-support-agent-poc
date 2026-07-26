@@ -38,6 +38,7 @@ def _config(**overrides):
         chat_deployment="gpt-5-mini",
         embedding_deployment="text-embedding-3-small",
         embedding_dimensions=1536,
+        content_safety_endpoint="https://example.cognitiveservices.azure.com",
         data_dir="/tmp/does-not-matter",
     )
     defaults.update(overrides)

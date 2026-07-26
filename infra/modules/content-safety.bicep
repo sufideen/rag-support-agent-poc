@@ -3,6 +3,8 @@ param location string
 param logAnalyticsWorkspaceId string
 param privateEndpointSubnetId string
 param keyVaultName string
+param dataPlaneAccessPrincipalId string
+param dataPlaneAccessPrincipalType string = 'User'
 
 resource contentSafety 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
   name: name
@@ -41,6 +43,16 @@ resource contentSafetyPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-0
         }
       }
     ]
+  }
+}
+
+resource contentSafetyRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(contentSafety.id, dataPlaneAccessPrincipalId, 'cognitive-services-user')
+  scope: contentSafety
+  properties: {
+    principalId: dataPlaneAccessPrincipalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a97b65f3-24c7-4388-baec-2e87135dc908')
+    principalType: dataPlaneAccessPrincipalType
   }
 }
 

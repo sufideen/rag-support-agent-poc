@@ -5,14 +5,16 @@ from config import Config
 def test_from_env_raises_when_required_vars_missing(monkeypatch):
     monkeypatch.delenv("SEARCH_ENDPOINT", raising=False)
     monkeypatch.delenv("OPENAI_ENDPOINT", raising=False)
+    monkeypatch.delenv("CONTENT_SAFETY_ENDPOINT", raising=False)
 
-    with pytest.raises(RuntimeError, match="SEARCH_ENDPOINT.*OPENAI_ENDPOINT"):
+    with pytest.raises(RuntimeError, match="SEARCH_ENDPOINT.*OPENAI_ENDPOINT.*CONTENT_SAFETY_ENDPOINT"):
         Config.from_env()
 
 
 def test_from_env_applies_defaults(monkeypatch):
     monkeypatch.setenv("SEARCH_ENDPOINT", "https://example.search.windows.net")
     monkeypatch.setenv("OPENAI_ENDPOINT", "https://example.openai.azure.com")
+    monkeypatch.setenv("CONTENT_SAFETY_ENDPOINT", "https://example.cognitiveservices.azure.com")
     for var in (
         "SEARCH_INDEX_NAME",
         "OPENAI_API_VERSION",
@@ -35,6 +37,7 @@ def test_from_env_applies_defaults(monkeypatch):
 def test_from_env_overrides_defaults(monkeypatch):
     monkeypatch.setenv("SEARCH_ENDPOINT", "https://example.search.windows.net")
     monkeypatch.setenv("OPENAI_ENDPOINT", "https://example.openai.azure.com")
+    monkeypatch.setenv("CONTENT_SAFETY_ENDPOINT", "https://example.cognitiveservices.azure.com")
     monkeypatch.setenv("SEARCH_INDEX_NAME", "custom-index")
     monkeypatch.setenv("EMBEDDING_DIMENSIONS", "3072")
 
