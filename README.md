@@ -7,6 +7,61 @@
 RAG-powered customer support AI agent POC built on Azure AI Foundry
 (Azure AI Search, Azure OpenAI, Azure AI Content Safety).
 
+## Architecture
+
+<p align="center"><img src="docs/architecture.svg" alt="Architecture diagram: a client sends a question through Content Safety, Azure AI Search, and Azure OpenAI, all deployed inside a Zero Trust landing zone's private VNet." width="900"></p>
+
+Three Azure AI Foundry services do the work — **Content Safety** moderates
+both ends of every exchange, **AI Search** holds the vector + keyword index
+over the support knowledge base, **OpenAI** embeds questions and generates
+grounded answers. All three sit behind private endpoints inside a VNet
+provisioned by the [ztr-entra-lz](https://github.com/sufideen/ztr-entra-lz)
+Zero Trust landing zone — nothing here is reachable from the public
+internet, and there are no API keys anywhere (Entra ID / RBAC only). See
+`docs/architecture.md` for the full component breakdown and the known gaps.
+
+## User Journey
+
+What actually happens between a question going in and an answer coming back
+(this is exactly what `app/query.py` and `app/api.py` both do — same steps,
+different transport):
+
+```mermaid
+sequenceDiagram
+    actor Client as Client (CLI / Web UI)
+    participant App as app/query.py or app/api.py
+    participant CS as Content Safety
+    participant AOAI as Azure OpenAI
+    participant Search as Azure AI Search
+
+    Client->>App: "How do I report an outage?"
+    App->>CS: moderate(question)
+    alt question flagged (severity ≥ 4)
+        CS-->>App: flagged
+        App-->>Client: fixed refusal message
+    else question is safe
+        CS-->>App: not flagged
+        App->>AOAI: embed(question)
+        AOAI-->>App: vector
+        App->>Search: vector search (top-k)
+        Search-->>App: matching chunks
+        App->>AOAI: generate(question, chunks)
+        AOAI-->>App: grounded answer
+        App->>CS: moderate(answer)
+        alt answer flagged
+            CS-->>App: flagged
+            App-->>Client: fixed refusal message
+        else answer is safe
+            CS-->>App: not flagged
+            App-->>Client: grounded answer
+        end
+    end
+```
+
+A real transcript of this flow — one grounded answer, one honest "I don't
+know" — is in "Running the RAG pipeline" below, and a screenshot of the web
+UI version is in "Running the web API."
+
 ## Can I run this myself?
 
 Not standalone. This repo deploys **into** an existing Zero Trust landing
@@ -61,6 +116,9 @@ data/
   *.md                            # sample GridPulse Energy support knowledge base
 docs/
   architecture.md
+  architecture.svg                # diagram embedded above
+screenshots/
+  README.md                       # what's real here, and a checklist for the rest
 .github/workflows/
   deploy.yml
   security-scan.yml
@@ -161,6 +219,12 @@ uvicorn app.api:app --host 0.0.0.0 --port 8000
 - `POST /query` — `{"question": "...", "top_k": 3}` → `{"answer": "..."}`.
 - `GET /healthz` — liveness check.
 
+<p align="center"><img src="screenshots/web-ui-filled.png" alt="The GridPulse Energy Support web UI with a question typed in, ready to submit" width="600"></p>
+
+This is a real, locally-captured screenshot of the actual page above — no
+Azure backend needed to render it. See `screenshots/README.md` for what a
+live-answer screenshot would take to capture.
+
 This is the natural integration point for anything that needs to call the
 agent over HTTP instead of a CLI — a Teams bot, a Copilot Studio custom
 connector, or any other M365-side client (see "What's next" below).
@@ -200,6 +264,14 @@ still only listens inside the VNet — a way for the bot/connector to reach it
 (private endpoint + VNet integration on whatever hosts the bot, or an
 internal Application Gateway). Neither is wired up in this repo; picking one
 is a tenant/hosting decision for whoever deploys this for real.
+
+## Screenshots
+
+`screenshots/` has two real, locally-captured images of the web UI (one
+embedded above) plus a checklist of the evidence a live Azure deployment
+would add — Portal views of the deployed resources, RBAC assignments, CI
+runs, and real Q&A transcripts. See `screenshots/README.md` for the full
+list and what each one would prove.
 
 ## Deployment Evidence
 
