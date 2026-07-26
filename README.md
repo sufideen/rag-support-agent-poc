@@ -55,6 +55,7 @@ app/
   create_index.py                 # one-time: (re)creates the AI Search index — run before ingest.py
   ingest.py                       # chunks data/*.md, embeds, upserts into AI Search
   query.py                        # RAG query CLI (retrieve + generate)
+  api.py                          # FastAPI wrapper around query.py's logic (HTTP + minimal HTML UI)
 tests/                            # unit tests for app/ — no Azure access required
 data/
   *.md                            # sample GridPulse Energy support knowledge base
@@ -147,6 +148,23 @@ true`, so auth is Entra ID / RBAC only via `DefaultAzureCredential`. Both the
 incoming question and the generated answer are also checked against Azure AI
 Content Safety before a response is returned.
 
+## Running the web API
+
+Same pipeline, same VNet requirement, same `.env` — just an HTTP front end
+(`app/api.py`) instead of a one-shot CLI command:
+
+```bash
+uvicorn app.api:app --host 0.0.0.0 --port 8000
+```
+
+- `GET /` — a minimal HTML page with a text box, for quick interactive testing.
+- `POST /query` — `{"question": "...", "top_k": 3}` → `{"answer": "..."}`.
+- `GET /healthz` — liveness check.
+
+This is the natural integration point for anything that needs to call the
+agent over HTTP instead of a CLI — a Teams bot, a Copilot Studio custom
+connector, or any other M365-side client (see "What's next" below).
+
 ## Testing
 
 `app/`'s pure logic and Azure client calls are unit tested with mocks — no
@@ -160,6 +178,28 @@ pytest
 
 Runs automatically in CI on every push/PR touching `app/**` or `tests/**`
 (`.github/workflows/python-ci.yml`).
+
+## What's next: Microsoft 365 (Teams / Copilot) integration
+
+Since most target customers here are M365 tenants, `app/api.py`'s
+`POST /query` is deliberately a plain, stateless HTTP endpoint — the seam
+either of these integration paths would call:
+
+- **Teams bot** via the [Teams AI Library](https://microsoft.github.io/teams-ai/)
+  or Azure Bot Framework: a bot registered in Entra ID, deployed as an Azure
+  Bot resource, whose message handler calls `POST /query` and relays the
+  answer back into the Teams conversation. Most control over UX (adaptive
+  cards, citations, follow-up prompts).
+- **Copilot Studio custom connector / plugin**: wrap `POST /query` as an
+  OpenAPI-described action Copilot Studio (or M365 Copilot) can invoke
+  directly from a conversation, no separate bot app to host. Faster to stand
+  up, less control over the interaction.
+
+Either path needs its own Entra ID app registration and — since the API
+still only listens inside the VNet — a way for the bot/connector to reach it
+(private endpoint + VNet integration on whatever hosts the bot, or an
+internal Application Gateway). Neither is wired up in this repo; picking one
+is a tenant/hosting decision for whoever deploys this for real.
 
 ## Deployment Evidence
 

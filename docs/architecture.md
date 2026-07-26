@@ -35,11 +35,14 @@ private endpoints into `snet-private-links`, and `disableLocalAuth: true` — En
 ## Why `app/` runs from the test VM, not the dev machine
 
 Because the services above have no public network access, a Windows dev machine
-outside the VNet cannot call them directly. `app/ingest.py` and `app/query.py` are
-written to run from inside the VNet — in practice, from `vm-rag-test` — using
-`infra/scripts/provision-test-vm-python.sh` (installs the venv and
-`requirements.txt`) via `az vm run-command invoke`, since the VM has no public IP
-and no SSH/Bastion access.
+outside the VNet cannot call them directly. `app/ingest.py`, `app/query.py`,
+and `app/api.py` are all written to run from inside the VNet — in practice,
+from `vm-rag-test` — using `infra/scripts/provision-test-vm-python.sh`
+(installs the venv and `requirements.txt`) via `az vm run-command invoke`,
+since the VM has no public IP and no SSH/Bastion access. `app/api.py` binding
+to `0.0.0.0` makes it reachable from elsewhere in the VNet, not the public
+internet — exposing it beyond the VNet would need an internal load balancer
+or Application Gateway, which isn't provisioned here.
 
 ## RAG pipeline (`app/`)
 
@@ -60,6 +63,13 @@ and no SSH/Bastion access.
   only that context, then moderates the generated answer before printing it.
   Both moderation checks use `SEVERITY_BLOCK_THRESHOLD = 4` — Azure's own
   recommended "medium" default on Content Safety's 0/2/4/6 severity scale.
+- `app/api.py` — a FastAPI wrapper around the exact same `retrieve` /
+  `generate_answer` / `is_flagged` functions from `query.py` (imported, not
+  duplicated), exposing `POST /query`, a `GET /healthz` health check, and a
+  minimal `GET /` HTML page for interactive testing. Run with
+  `uvicorn app.api:app`. Clients are built once behind `lru_cache`d FastAPI
+  dependencies so tests can override them with mocks
+  (`app.dependency_overrides`) without touching Azure.
 
 All three authenticate via `DefaultAzureCredential` against the RBAC roles the
 Bicep already grants to `dataPlaneAccessPrincipalId` (`Search Index Data
@@ -93,7 +103,3 @@ options, neither wired up yet:
   `infra/**` on every push/PR touching it.
 - `.github/workflows/python-ci.yml` — `ruff check` + `pytest` against `app/**`
   and `tests/**` on every push/PR touching them.
-
-## Not yet done
-
-- No web/API front end — `app/query.py` is a CLI only.
