@@ -12,6 +12,7 @@ def _config(embedding_dimensions=1536):
         chat_deployment="gpt-5-mini",
         embedding_deployment="text-embedding-3-small",
         embedding_dimensions=embedding_dimensions,
+        content_safety_endpoint="https://example.cognitiveservices.azure.com",
         data_dir="/tmp/does-not-matter",
     )
 

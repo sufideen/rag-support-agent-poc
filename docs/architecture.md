@@ -12,10 +12,10 @@ data/*.md  --ingest.py-->  Azure AI Search index (vector + keyword)
                                      ^
                                      | retrieve top-k chunks
                                      |
-customer question --query.py--> Azure OpenAI (gpt-5-mini) --> grounded answer
-                                     ^
-                                     | embed question / chunks
-                                     |
+customer question --query.py--> [Content Safety: question] --> Azure OpenAI (gpt-5-mini)
+                                     ^                                    |
+                                     | embed question / chunks           v
+                                     |                    [Content Safety: answer] --> grounded answer
                           Azure OpenAI (text-embedding-3-small)
 ```
 
@@ -25,7 +25,7 @@ customer question --query.py--> Azure OpenAI (gpt-5-mini) --> grounded answer
 |---|---|---|
 | Azure AI Search (basic) | `infra/modules/ai-search.bicep` | Vector + keyword index over the support knowledge base |
 | Azure OpenAI | `infra/modules/azure-openai.bicep`, `infra/openai-model-deployments.bicep` | `gpt-5-mini` for answer generation, `text-embedding-3-small` for embeddings |
-| Azure AI Content Safety | `infra/modules/content-safety.bicep` | Provisioned for future input/output moderation — not yet wired into `app/` |
+| Azure AI Content Safety | `infra/modules/content-safety.bicep` | Moderates both the incoming question and the generated answer in `app/query.py` before either reaches the customer |
 | Test VM | `infra/test-vm.bicep` | Disposable Ubuntu 24.04 VM inside the VNet, used to validate private-endpoint connectivity and to run `app/` scripts (see below) |
 
 All three data-plane services are deployed with `publicNetworkAccess: 'Disabled'`,
@@ -35,11 +35,14 @@ private endpoints into `snet-private-links`, and `disableLocalAuth: true` — En
 ## Why `app/` runs from the test VM, not the dev machine
 
 Because the services above have no public network access, a Windows dev machine
-outside the VNet cannot call them directly. `app/ingest.py` and `app/query.py` are
-written to run from inside the VNet — in practice, from `vm-rag-test` — using
-`infra/scripts/provision-test-vm-python.sh` (installs the venv and
-`requirements.txt`) via `az vm run-command invoke`, since the VM has no public IP
-and no SSH/Bastion access.
+outside the VNet cannot call them directly. `app/ingest.py`, `app/query.py`,
+and `app/api.py` are all written to run from inside the VNet — in practice,
+from `vm-rag-test` — using `infra/scripts/provision-test-vm-python.sh`
+(installs the venv and `requirements.txt`) via `az vm run-command invoke`,
+since the VM has no public IP and no SSH/Bastion access. `app/api.py` binding
+to `0.0.0.0` makes it reachable from elsewhere in the VNet, not the public
+internet — exposing it beyond the VNet would need an internal load balancer
+or Application Gateway, which isn't provisioned here.
 
 ## RAG pipeline (`app/`)
 
@@ -54,13 +57,23 @@ and no SSH/Bastion access.
   chunk with `text-embedding-3-small`, and upserts into the index created by
   `create_index.py` (fails with a clear error if that index doesn't exist
   yet).
-- `app/query.py` — embeds the incoming question, retrieves the top-k chunks via
-  Search's vector query, and asks `gpt-5-mini` to answer using only that
-  context.
+- `app/query.py` — moderates the incoming question with Content Safety first
+  (refuses without calling Search/OpenAI if flagged), embeds it, retrieves the
+  top-k chunks via Search's vector query, asks `gpt-5-mini` to answer using
+  only that context, then moderates the generated answer before printing it.
+  Both moderation checks use `SEVERITY_BLOCK_THRESHOLD = 4` — Azure's own
+  recommended "medium" default on Content Safety's 0/2/4/6 severity scale.
+- `app/api.py` — a FastAPI wrapper around the exact same `retrieve` /
+  `generate_answer` / `is_flagged` functions from `query.py` (imported, not
+  duplicated), exposing `POST /query`, a `GET /healthz` health check, and a
+  minimal `GET /` HTML page for interactive testing. Run with
+  `uvicorn app.api:app`. Clients are built once behind `lru_cache`d FastAPI
+  dependencies so tests can override them with mocks
+  (`app.dependency_overrides`) without touching Azure.
 
-Both authenticate via `DefaultAzureCredential` against the RBAC roles the Bicep
-already grants to `dataPlaneAccessPrincipalId` (`Search Index Data Contributor`,
-`Cognitive Services OpenAI User`).
+All three authenticate via `DefaultAzureCredential` against the RBAC roles the
+Bicep already grants to `dataPlaneAccessPrincipalId` (`Search Index Data
+Contributor`, `Cognitive Services OpenAI User`, `Cognitive Services User`).
 
 ## Known gap: auth from inside the VM
 
@@ -90,8 +103,3 @@ options, neither wired up yet:
   `infra/**` on every push/PR touching it.
 - `.github/workflows/python-ci.yml` — `ruff check` + `pytest` against `app/**`
   and `tests/**` on every push/PR touching them.
-
-## Not yet done
-
-- Content Safety is deployed but not called from `app/query.py`.
-- No web/API front end — `app/query.py` is a CLI only.

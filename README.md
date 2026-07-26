@@ -55,6 +55,7 @@ app/
   create_index.py                 # one-time: (re)creates the AI Search index — run before ingest.py
   ingest.py                       # chunks data/*.md, embeds, upserts into AI Search
   query.py                        # RAG query CLI (retrieve + generate)
+  api.py                          # FastAPI wrapper around query.py's logic (HTTP + minimal HTML UI)
 tests/                            # unit tests for app/ — no Azure access required
 data/
   *.md                            # sample GridPulse Energy support knowledge base
@@ -111,7 +112,7 @@ Python there). From wherever you run them:
 
 ```bash
 az login   # DefaultAzureCredential needs a credential source
-cp .env.example .env   # fill in SEARCH_ENDPOINT / OPENAI_ENDPOINT from the deployment outputs
+cp .env.example .env   # fill in SEARCH_ENDPOINT / OPENAI_ENDPOINT / CONTENT_SAFETY_ENDPOINT from the deployment outputs
 export $(grep -v '^#' .env | xargs)
 
 python app/create_index.py                    # one-time: creates the Search index
@@ -119,8 +120,50 @@ python app/ingest.py                          # embeds data/*.md into it
 python app/query.py "How do I report an outage?"
 ```
 
-No API keys are used anywhere — both services have `disableLocalAuth: true`,
-so auth is Entra ID / RBAC only via `DefaultAzureCredential`.
+Example output, grounded in `data/outage-reporting.md`:
+
+```
+$ python app/query.py "How do I report an outage?"
+You can report a power outage in three ways: online via the GridPulse
+account portal (fastest, gives a restoration estimate), by calling the
+24/7 outage line on 0800 555 0199, or by texting OUTAGE to 60555 with
+your postcode. Before reporting, check whether a neighbour has power
+(a tripped fuse may be the cause) and the live outage map for known
+faults in your area.
+
+$ python app/query.py "What's your refund policy for a broken toaster?"
+I don't have that information — please contact GridPulse Energy support
+directly for help with that.
+```
+
+The second example shows the grounding working as intended: nothing in the
+knowledge base covers toaster refunds, so `gpt-5-mini` declines per
+`SYSTEM_PROMPT` instead of guessing. Separately, if either the question or
+the generated answer is flagged by Content Safety (severity ≥
+`SEVERITY_BLOCK_THRESHOLD`), `query.py` short-circuits with a fixed refusal
+message instead of ever printing model output.
+
+No API keys are used anywhere — all three services have `disableLocalAuth:
+true`, so auth is Entra ID / RBAC only via `DefaultAzureCredential`. Both the
+incoming question and the generated answer are also checked against Azure AI
+Content Safety before a response is returned.
+
+## Running the web API
+
+Same pipeline, same VNet requirement, same `.env` — just an HTTP front end
+(`app/api.py`) instead of a one-shot CLI command:
+
+```bash
+uvicorn app.api:app --host 0.0.0.0 --port 8000
+```
+
+- `GET /` — a minimal HTML page with a text box, for quick interactive testing.
+- `POST /query` — `{"question": "...", "top_k": 3}` → `{"answer": "..."}`.
+- `GET /healthz` — liveness check.
+
+This is the natural integration point for anything that needs to call the
+agent over HTTP instead of a CLI — a Teams bot, a Copilot Studio custom
+connector, or any other M365-side client (see "What's next" below).
 
 ## Testing
 
@@ -135,6 +178,28 @@ pytest
 
 Runs automatically in CI on every push/PR touching `app/**` or `tests/**`
 (`.github/workflows/python-ci.yml`).
+
+## What's next: Microsoft 365 (Teams / Copilot) integration
+
+Since most target customers here are M365 tenants, `app/api.py`'s
+`POST /query` is deliberately a plain, stateless HTTP endpoint — the seam
+either of these integration paths would call:
+
+- **Teams bot** via the [Teams AI Library](https://microsoft.github.io/teams-ai/)
+  or Azure Bot Framework: a bot registered in Entra ID, deployed as an Azure
+  Bot resource, whose message handler calls `POST /query` and relays the
+  answer back into the Teams conversation. Most control over UX (adaptive
+  cards, citations, follow-up prompts).
+- **Copilot Studio custom connector / plugin**: wrap `POST /query` as an
+  OpenAPI-described action Copilot Studio (or M365 Copilot) can invoke
+  directly from a conversation, no separate bot app to host. Faster to stand
+  up, less control over the interaction.
+
+Either path needs its own Entra ID app registration and — since the API
+still only listens inside the VNet — a way for the bot/connector to reach it
+(private endpoint + VNet integration on whatever hosts the bot, or an
+internal Application Gateway). Neither is wired up in this repo; picking one
+is a tenant/hosting decision for whoever deploys this for real.
 
 ## Deployment Evidence
 

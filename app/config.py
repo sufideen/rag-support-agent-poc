@@ -13,11 +13,12 @@ class Config:
     chat_deployment: str
     embedding_deployment: str
     embedding_dimensions: int
+    content_safety_endpoint: str
     data_dir: str
 
     @classmethod
     def from_env(cls) -> "Config":
-        required = ("SEARCH_ENDPOINT", "OPENAI_ENDPOINT")
+        required = ("SEARCH_ENDPOINT", "OPENAI_ENDPOINT", "CONTENT_SAFETY_ENDPOINT")
         missing = [name for name in required if not os.environ.get(name)]
         if missing:
             raise RuntimeError(
@@ -33,5 +34,6 @@ class Config:
             chat_deployment=os.environ.get("CHAT_DEPLOYMENT", "gpt-5-mini"),
             embedding_deployment=os.environ.get("EMBEDDING_DEPLOYMENT", "text-embedding-3-small"),
             embedding_dimensions=int(os.environ.get("EMBEDDING_DIMENSIONS", "1536")),
+            content_safety_endpoint=os.environ["CONTENT_SAFETY_ENDPOINT"],
             data_dir=os.environ.get("DATA_DIR", _DEFAULT_DATA_DIR),
         )
