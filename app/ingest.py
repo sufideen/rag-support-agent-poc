@@ -18,9 +18,8 @@ from azure.core.exceptions import ResourceNotFoundError
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from azure.search.documents import SearchClient
 from azure.search.documents.indexes import SearchIndexClient
-from openai import AzureOpenAI
-
 from config import Config
+from openai import AzureOpenAI
 
 COGNITIVE_SERVICES_SCOPE = "https://cognitiveservices.azure.com/.default"
 
@@ -70,7 +69,7 @@ def main() -> int:
     for path in sorted(glob.glob(os.path.join(config.data_dir, "*.md"))):
         source = os.path.basename(path)
         category = os.path.splitext(source)[0]
-        with open(path, encoding="utf-8") as f:
+        with open(path, encoding="utf-8-sig") as f:
             text = f.read()
         for i, chunk in enumerate(chunk_markdown(text)):
             documents.append(

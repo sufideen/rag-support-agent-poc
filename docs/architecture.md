@@ -81,13 +81,17 @@ options, neither wired up yet:
 ## CI/CD
 
 - `.github/workflows/deploy.yml` — `az deployment group what-if` then
-  `az deployment group create` against `infra/main-rag-poc.bicep`, via OIDC
-  federated login (no stored secrets beyond client/tenant/subscription IDs).
+  `az deployment group create` against `infra/main-rag-poc.bicep`, followed
+  by a `deploy-model-deployments` job that deploys
+  `infra/openai-model-deployments.bicep` against the now-`Succeeded` OpenAI
+  account — via OIDC federated login (no stored secrets beyond
+  client/tenant/subscription IDs).
 - `.github/workflows/security-scan.yml` — PSRule for Azure + Checkov against
   `infra/**` on every push/PR touching it.
+- `.github/workflows/python-ci.yml` — `ruff check` + `pytest` against `app/**`
+  and `tests/**` on every push/PR touching them.
 
 ## Not yet done
 
 - Content Safety is deployed but not called from `app/query.py`.
-- No automated tests for `app/`.
 - No web/API front end — `app/query.py` is a CLI only.

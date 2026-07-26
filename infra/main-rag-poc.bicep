@@ -82,4 +82,5 @@ module contentSafety 'modules/content-safety.bicep' = {
 
 output searchEndpoint string = aiSearch.outputs.endpoint
 output openAiEndpoint string = azureOpenAi.outputs.endpoint
+output openAiName string = azureOpenAi.outputs.openAiName
 output contentSafetyEndpoint string = contentSafety.outputs.endpoint
