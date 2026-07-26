@@ -10,12 +10,10 @@ on:
       - 'pyproject.toml'
       - '.github/workflows/python-ci.yml'
   pull_request:
-    paths:
-      - 'app/**'
-      - 'tests/**'
-      - 'requirements*.txt'
-      - 'pyproject.toml'
-      - '.github/workflows/python-ci.yml'
+    # Deliberately no path filter here (unlike the push trigger above): a
+    # required status check that never runs on a given PR's diff leaves
+    # branch protection waiting forever, permanently blocking merge. Always
+    # running on every PR keeps the required check satisfiable.
 
 jobs:
   lint-and-test:
