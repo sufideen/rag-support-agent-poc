@@ -25,7 +25,6 @@ from azure.search.documents.indexes.models import (
     VectorSearch,
     VectorSearchProfile,
 )
-
 from config import Config
 
 VECTOR_PROFILE_NAME = "default-vector-profile"

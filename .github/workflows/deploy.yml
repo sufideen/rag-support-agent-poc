@@ -52,6 +52,7 @@ jobs:
       - name: Deploy
         run: |
           az deployment group create \
+            --name deploy-rag-poc \
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
             --template-file infra/main-rag-poc.bicep \
             --parameters \
@@ -60,3 +61,32 @@ jobs:
               existingPrivateEndpointSubnetId="${{ vars.PRIVATE_ENDPOINT_SUBNET_ID }}" \
               dataPlaneAccessPrincipalId="${{ vars.DATA_PLANE_PRINCIPAL_ID }}" \
               dataPlaneAccessPrincipalType="ServicePrincipal"
+
+  deploy-model-deployments:
+    needs: deploy
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # Deployed as a separate step against the already-Succeeded OpenAI
+      # account rather than as a module of main-rag-poc.bicep — deploying
+      # the account and its model deployments in one template intermittently
+      # fails with AccountProvisioningStateInvalid (see README "Build log").
+      - name: Deploy model deployments
+        run: |
+          OPENAI_NAME=$(az deployment group show \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name deploy-rag-poc \
+            --query properties.outputs.openAiName.value -o tsv)
+
+          az deployment group create \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --template-file infra/openai-model-deployments.bicep \
+            --parameters openAiAccountName="$OPENAI_NAME"

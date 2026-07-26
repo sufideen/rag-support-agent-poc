@@ -1,7 +1,28 @@
 ﻿# rag-support-agent-poc
 
+[![Deploy infrastructure](https://github.com/sufideen/rag-support-agent-poc/actions/workflows/deploy.yml/badge.svg)](https://github.com/sufideen/rag-support-agent-poc/actions/workflows/deploy.yml)
+[![Security scan](https://github.com/sufideen/rag-support-agent-poc/actions/workflows/security-scan.yml/badge.svg)](https://github.com/sufideen/rag-support-agent-poc/actions/workflows/security-scan.yml)
+[![Python CI](https://github.com/sufideen/rag-support-agent-poc/actions/workflows/python-ci.yml/badge.svg)](https://github.com/sufideen/rag-support-agent-poc/actions/workflows/python-ci.yml)
+
 RAG-powered customer support AI agent POC built on Azure AI Foundry
 (Azure AI Search, Azure OpenAI, Azure AI Content Safety).
+
+## Can I run this myself?
+
+Not standalone. This repo deploys **into** an existing Zero Trust landing
+zone ([ztr-entra-lz](https://github.com/sufideen/ztr-entra-lz)) rather than
+provisioning its own network, Key Vault, and Log Analytics workspace — see
+"Landing zone dependency" below. To deploy and run the pipeline end to end
+you need that landing zone deployed in your own Azure subscription first.
+Without it, you can still read through `app/` and `infra/` and run the unit
+tests (`pytest` — see "Testing" below), which don't touch Azure at all.
+
+## Prerequisites
+
+- Python 3.9+ (`app/` uses `list[str]`-style built-in generics)
+- Azure CLI, logged in (`az login`) with access to the target subscription
+- The [ztr-entra-lz](https://github.com/sufideen/ztr-entra-lz) landing zone
+  already deployed (see "Can I run this myself?" above)
 
 ## Landing zone dependency
 
@@ -34,6 +55,7 @@ app/
   create_index.py                 # one-time: (re)creates the AI Search index — run before ingest.py
   ingest.py                       # chunks data/*.md, embeds, upserts into AI Search
   query.py                        # RAG query CLI (retrieve + generate)
+tests/                            # unit tests for app/ — no Azure access required
 data/
   *.md                            # sample GridPulse Energy support knowledge base
 docs/
@@ -41,12 +63,23 @@ docs/
 .github/workflows/
   deploy.yml
   security-scan.yml
+  python-ci.yml
 ```
 
 See `docs/architecture.md` for how these fit together, including why `app/`
 runs from inside the VNet rather than a local dev machine.
 
 ## Deploy
+
+Deployment is two phases — the OpenAI account first, then its model
+deployments as a separate step. Doing both in one template intermittently
+fails with `AccountProvisioningStateInvalid` (see "Build log" below), so
+`infra/openai-model-deployments.bicep` is deployed only after the account
+from `main-rag-poc.bicep` is confirmed `Succeeded` (this is exactly what
+`.github/workflows/deploy.yml`'s `deploy` → `deploy-model-deployments` jobs
+automate).
+
+**Step 1 — core infrastructure (Search, OpenAI account, Content Safety):**
 
 ```powershell
 az deployment group what-if `
@@ -58,7 +91,16 @@ az deployment group what-if `
                dataPlaneAccessPrincipalId="<principal-id>"
 ```
 
-Review the `what-if` output, then run `az deployment group create` with the same parameters.
+Review the `what-if` output, then run with `az deployment group create --name deploy-rag-poc` (same parameters).
+
+**Step 2 — OpenAI model deployments** (run once step 1 shows `Succeeded`):
+
+```powershell
+az deployment group create `
+  --resource-group "<your-rg>" `
+  --template-file "infra\openai-model-deployments.bicep" `
+  --parameters openAiAccountName="<name from step 1's openAiName output>"
+```
 
 ## Running the RAG pipeline
 
@@ -79,6 +121,20 @@ python app/query.py "How do I report an outage?"
 
 No API keys are used anywhere — both services have `disableLocalAuth: true`,
 so auth is Entra ID / RBAC only via `DefaultAzureCredential`.
+
+## Testing
+
+`app/`'s pure logic and Azure client calls are unit tested with mocks — no
+Azure access or deployed infrastructure required:
+
+```bash
+pip install -r requirements-dev.txt
+ruff check app tests
+pytest
+```
+
+Runs automatically in CI on every push/PR touching `app/**` or `tests/**`
+(`.github/workflows/python-ci.yml`).
 
 ## Deployment Evidence
 
@@ -124,7 +180,4 @@ Deploying this wasn't a single clean run. Worth documenting the real issues, sin
 ### Security scanning
 
 IaC security scanning via [PSRule for Azure](https://azure.github.io/PSRule.Rules.Azure/) and [Checkov](https://www.checkov.io/) runs on every push to `infra/**` — see `.github/workflows/security-scan.yml`. Findings surface in the repo's [Security tab](../../security/code-scanning).
-
-
-
 
