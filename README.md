@@ -318,3 +318,13 @@ Deploying this wasn't a single clean run. Worth documenting the real issues, sin
 
 IaC security scanning via [PSRule for Azure](https://azure.github.io/PSRule.Rules.Azure/) and [Checkov](https://www.checkov.io/) runs on every push to `infra/**` — see `.github/workflows/security-scan.yml`. Findings surface in the repo's [Security tab](../../security/code-scanning).
 
+
+## Data handling and privacy (GDPR)
+
+- The knowledge base in `data/` is fictional sample content for the made-up
+  "GridPulse Energy". It contains no real customer data or personal data.
+- If you point this at real support content, treat user questions as personal data:
+  decide a lawful basis, avoid logging raw questions with identifiers, set retention
+  limits on the search index and logs, and complete a data protection impact
+  assessment before production use.
+- Authentication is Entra ID / RBAC only. There are no API keys to leak.
