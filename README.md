@@ -328,3 +328,20 @@ IaC security scanning via [PSRule for Azure](https://azure.github.io/PSRule.Rule
   limits on the search index and logs, and complete a data protection impact
   assessment before production use.
 - Authentication is Entra ID / RBAC only. There are no API keys to leak.
+
+## Reproduce it from scratch
+
+1. **Prerequisites:** an Azure subscription (this creates billable resources, so use a
+   sandbox and set a budget alert), the Azure CLI with Bicep, and a GitHub fork of this
+   repo. Permissions needed are listed in the deployment steps above.
+2. **Configure OIDC:** create an Entra app registration with a federated credential for
+   your fork, then add its IDs as repository secrets (names are in the workflow files).
+   No passwords or keys are required.
+3. **Validate first:** open a pull request or run the workflow manually. The what-if step
+   shows what would be created without changing anything.
+4. **Deploy:** run the deployment as described in this README, then check the
+   verification steps and screenshots to confirm the result matches.
+5. **Tear down** the resources when finished to stop charges.
+
+If any step here does not work as written, please open an issue. That is a documentation
+bug.
