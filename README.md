@@ -329,13 +329,6 @@ IaC security scanning via [PSRule for Azure](https://azure.github.io/PSRule.Rule
   assessment before production use.
 - Authentication is Entra ID / RBAC only. There are no API keys to leak.
 
-## How this was built
-
-The architecture, scope and security decisions are the author's. Claude (Anthropic's
-AI assistant) was used as a coding assistant to draft code and documentation, and every
-change was reviewed and merged by the author. Commits and pull requests co-authored by
-Claude are labelled as such in the history.
-
 ## Reproduce it from scratch
 
 1. **Prerequisites:** an Azure subscription (this creates billable resources, so use a
